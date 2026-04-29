@@ -232,6 +232,185 @@ function HorizontalLine({ active }: { active: boolean }) {
   return <div className={`h-1 rounded-full ${active ? "bg-emerald-500" : "bg-slate-300"}`} />;
 }
 
+type AlarmItem = {
+  title: string;
+  severity: "Critical" | "Alarm" | "Warning" | "Info";
+  explanation: string;
+};
+
+function alarmColor(severity: AlarmItem["severity"]) {
+  if (severity === "Critical") return "border-red-500 bg-red-50 text-red-950";
+  if (severity === "Alarm") return "border-orange-500 bg-orange-50 text-orange-950";
+  if (severity === "Warning") return "border-yellow-500 bg-yellow-50 text-yellow-950";
+  return "border-blue-500 bg-blue-50 text-blue-950";
+}
+
+function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): AlarmItem[] {
+  const alarms: AlarmItem[] = [];
+
+  if (faults.utilityAOpen) {
+    alarms.push({
+      title: "Utility / SES A Main Open",
+      severity: state.pathA.generator ? "Warning" : "Alarm",
+      explanation: state.pathA.generator
+        ? "Path A lost utility power, but Generator A is available. UPS A is shown in transfer because the source is being supported by generator power."
+        : "Path A lost utility power and Generator A is not available. Downstream A-side equipment will lose source support.",
+    });
+  }
+
+  if (faults.utilityBOpen) {
+    alarms.push({
+      title: "Utility / SES B Main Open",
+      severity: state.pathB.generator ? "Warning" : "Alarm",
+      explanation: state.pathB.generator
+        ? "Path B lost utility power, but Generator B is available. UPS B is shown in transfer because the source is being supported by generator power."
+        : "Path B lost utility power and Generator B is not available. Downstream B-side equipment will lose source support.",
+    });
+  }
+
+  if (faults.genAFailed) {
+    alarms.push({
+      title: "Generator A Failed",
+      severity: faults.utilityAOpen ? "Alarm" : "Info",
+      explanation: faults.utilityAOpen
+        ? "Generator A is failed while Utility A is open, so Path A has no standby source available."
+        : "Generator A is failed, but Utility A is still available, so Path A remains supported for now.",
+    });
+  }
+
+  if (faults.genBFailed) {
+    alarms.push({
+      title: "Generator B Failed",
+      severity: faults.utilityBOpen ? "Alarm" : "Info",
+      explanation: faults.utilityBOpen
+        ? "Generator B is failed while Utility B is open, so Path B has no standby source available."
+        : "Generator B is failed, but Utility B is still available, so Path B remains supported for now.",
+    });
+  }
+
+  if (faults.upsAFailed) {
+    alarms.push({
+      title: "UPS A Failed",
+      severity: "Alarm",
+      explanation: "UPS A is failed, so Source A cannot support the STS even if Utility A or Generator A is available.",
+    });
+  }
+
+  if (faults.upsBFailed) {
+    alarms.push({
+      title: "UPS B Failed",
+      severity: "Alarm",
+      explanation: "UPS B is failed, so Source B cannot support the STS even if Utility B or Generator B is available.",
+    });
+  }
+
+  if (faults.stsFailed) {
+    alarms.push({
+      title: "STS Failed",
+      severity: "Critical",
+      explanation: "The STS has failed. No source can be selected, so PDU and server loads lose power even if upstream sources are healthy.",
+    });
+  }
+
+  if (stsMode === "A" && !state.stsA) {
+    alarms.push({
+      title: "STS Forced to Source A but Source A Unavailable",
+      severity: "Critical",
+      explanation: "The STS is manually set to A, but A is not available. In AUTO, the STS may be able to transfer to B if B is healthy.",
+    });
+  }
+
+  if (stsMode === "B" && !state.stsB) {
+    alarms.push({
+      title: "STS Forced to Source B but Source B Unavailable",
+      severity: "Critical",
+      explanation: "The STS is manually set to B, but B is not available. In AUTO, the STS may be able to transfer to A if A is healthy.",
+    });
+  }
+
+  if (state.selectedSource === "B") {
+    alarms.push({
+      title: "STS Transferred to Source B",
+      severity: "Warning",
+      explanation: "The load is being supported from Source B. This usually means Source A is unavailable or the STS was manually selected to B.",
+    });
+  }
+
+  if (faults.pduAFailed) {
+    alarms.push({
+      title: "PDU A Failed / Open",
+      severity: state.selectedSource === "A" ? "Critical" : "Warning",
+      explanation: "PDU A is unavailable. If the STS is feeding Source A, A-side RPPs and server loads lose downstream distribution.",
+    });
+  }
+
+  if (faults.pduBFailed) {
+    alarms.push({
+      title: "PDU B Failed / Open",
+      severity: state.selectedSource === "B" ? "Critical" : "Warning",
+      explanation: "PDU B is unavailable. If the STS is feeding Source B, B-side RPPs and server loads lose downstream distribution.",
+    });
+  }
+
+  if (faults.rpp1Open) {
+    alarms.push({
+      title: "RPP1 Open",
+      severity: state.rpp2 ? "Warning" : "Alarm",
+      explanation: "RPP1 is open. Server Row 1 may remain online if another assigned RPP path is still energized.",
+    });
+  }
+
+  if (faults.rpp2Open) {
+    alarms.push({
+      title: "RPP2 Open",
+      severity: state.rpp1 ? "Warning" : "Alarm",
+      explanation: "RPP2 is open. Server Row 1 may remain online if another assigned RPP path is still energized.",
+    });
+  }
+
+  if (faults.rpp3Open) {
+    alarms.push({
+      title: "RPP3 Open",
+      severity: state.rpp4 ? "Warning" : "Alarm",
+      explanation: "RPP3 is open. Server Row 2 may remain online if another assigned RPP path is still energized.",
+    });
+  }
+
+  if (faults.rpp4Open) {
+    alarms.push({
+      title: "RPP4 Open",
+      severity: state.rpp3 ? "Warning" : "Alarm",
+      explanation: "RPP4 is open. Server Row 2 may remain online if another assigned RPP path is still energized.",
+    });
+  }
+
+  if (!state.serverRow1) {
+    alarms.push({
+      title: "Server Row 1 Offline",
+      severity: "Critical",
+      explanation: "Server Row 1 has no energized downstream feed available in the current simulation state.",
+    });
+  }
+
+  if (!state.serverRow2) {
+    alarms.push({
+      title: "Server Row 2 Offline",
+      severity: "Critical",
+      explanation: "Server Row 2 has no energized downstream feed available in the current simulation state.",
+    });
+  }
+
+  if (alarms.length === 0) {
+    alarms.push({
+      title: "Normal System",
+      severity: "Info",
+      explanation: "No active simulated faults. Utility, UPS, STS, PDU, RPP, and server loads are in a normal supported condition.",
+    });
+  }
+
+  return alarms;
+}
+
 export default function DataCenterPowerTrainer() {
   const [tier, setTier] = useState(4);
   const [selectedModule, setSelectedModule] = useState("sts");
@@ -308,6 +487,7 @@ export default function DataCenterPowerTrainer() {
   }, [faults, stsMode, tier]);
 
   const selected = MODULES.find((m) => m.id === selectedModule) || MODULES[0];
+  const alarms = getAlarms(faults, state, stsMode);
 
   function flip(key: keyof FaultState) {
     setFaults((old) => ({ ...old, [key]: !old[key] }));
@@ -457,10 +637,20 @@ export default function DataCenterPowerTrainer() {
 
             <Card className="rounded-3xl shadow-sm">
               <CardContent className="space-y-4 p-5">
-                <h2 className="text-xl font-black">Interactive One-Line Controls</h2>
-                <p className="text-sm leading-6 text-slate-600">
-                  Click the equipment blocks directly in the one-line to simulate breaker openings, generator failures, UPS failures, STS source transfers, and downstream branch failures.
-                </p>
+                <h2 className="text-xl font-black">Fault / Alarm Explanation</h2>
+                <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                  {alarms.map((alarm, index) => (
+                    <div key={`${alarm.title}-${index}`} className={`rounded-2xl border-l-4 p-3 ${alarmColor(alarm.severity)}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="font-black">{alarm.title}</div>
+                        <div className="rounded-full bg-white/70 px-2 py-1 text-[10px] font-black uppercase tracking-wide">
+                          {alarm.severity}
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm leading-6">{alarm.explanation}</p>
+                    </div>
+                  ))}
+                </div>
                 <Button variant="ghost" onClick={reset} className="w-full rounded-xl">
                   Reset Entire System
                 </Button>
