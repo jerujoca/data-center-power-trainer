@@ -68,25 +68,25 @@ const MODULES: ModuleItem[] = [
     id: "utility",
     label: "Utility / Transformer",
     lesson:
-      "Utility power feeds each service path. In Tier IV, Path A and Path B are shown as separate utility/service paths.",
+      "Utility power is the normal source feeding the service path. In the higher tiers, A and B paths are shown as separate utility/service paths.",
   },
   {
     id: "ses",
     label: "SES A / SES B",
     lesson:
-      "The Service Entrance Sections receive utility power and distribute it toward generators, UPS systems, and downstream loads. In Tier IV, A and B paths stay independent.",
+      "The Service Entrance Section receives utility power and distributes it downstream. In higher tiers, A and B service paths stay independent.",
   },
   {
     id: "gen",
     label: "GEN A / GEN B",
     lesson:
-      "The generator side supports the path when utility fails. In this simplified trainer, generator power becomes available when utility is open unless that generator is failed.",
+      "Generator power is added as standby support. In this simplified trainer, generator power becomes available when utility is open unless that generator is failed.",
   },
   {
     id: "ups",
     label: "UPS A / UPS B",
     lesson:
-      "Each UPS supports its source path and keeps the load alive while transferring from utility to generator power.",
+      "The UPS supports the source path and keeps the load alive while the system transfers from utility to generator power.",
   },
   {
     id: "sts",
@@ -98,28 +98,30 @@ const MODULES: ModuleItem[] = [
     id: "pdu",
     label: "PDU A / PDU B",
     lesson:
-      "PDU-A and PDU-B distribute power into branch circuits. PDU-A feeds RPP1 and RPP2. PDU-B feeds RPP3 and RPP4.",
+      "The PDU distributes power into branch circuits feeding the RPPs.",
   },
   {
     id: "rpp",
     label: "RPP1 - RPP4",
     lesson:
-      "RPP1 and RPP2 support Server Row 1. RPP3 and RPP4 support Server Row 2. Each RPP can be opened to simulate a branch failure.",
+      "The RPP distributes branch power to the server rows. Each RPP can be opened to simulate a downstream branch failure.",
   },
   {
     id: "servers",
     label: "Server Rows",
     lesson:
-      "Server Row 1 is supported by RPP1/RPP2. Server Row 2 is supported by RPP3/RPP4. In this trainer, a row remains online if at least one assigned RPP is energized.",
+      "The server rows are the final load. A row remains online when it has an energized downstream feed available.",
   },
 ];
 
 const tierDescriptions: Record<number, string> = {
-  1: "Tier I: Single power path. Only Path A is used.",
-  2: "Tier II: Single distribution path with redundant generator support shown.",
-  3: "Tier III: A maintainable design concept. This simplified trainer shows A/B source support through the STS.",
-  4: "Tier IV: Two independent A/B paths with dual downstream distribution and fault-tolerant server support.",
+  0: "Tier 0: Basic single path. Utility / SES feeds PDU, RPP, and server load. No generator, UPS, STS, or B path.",
+  2: "Tier 2: Adds Generator A to support the single A path during utility loss.",
+  3: "Tier 3: Adds UPS A to the A path so the load can ride through transfer from utility to generator.",
+  4: "Tier 4: Adds the STS and full A/B source concept with Path B, UPS B, PDU B, and additional downstream redundancy.",
 };
+
+const availableTiers = [0, 2, 3, 4];
 
 const defaultFaults: FaultState = {
   utilityAOpen: false,
@@ -228,8 +230,16 @@ function ModuleCard({
   );
 }
 
-function HorizontalLine({ active }: { active: boolean }) {
-  return <div className={`h-1 rounded-full ${active ? "bg-emerald-500" : "bg-slate-300"}`} />;
+function LineBox({ children }: { children: React.ReactNode }) {
+  return <div className="w-[170px] shrink-0">{children}</div>;
+}
+
+function WireBox({ active }: { active: boolean }) {
+  return (
+    <div className="w-[40px] shrink-0">
+      <div className={`h-1 rounded-full ${active ? "bg-emerald-500" : "bg-slate-300"}`} />
+    </div>
+  );
 }
 
 type AlarmItem = {
@@ -245,30 +255,31 @@ function alarmColor(severity: AlarmItem["severity"]) {
   return "border-blue-500 bg-blue-50 text-blue-950";
 }
 
-function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): AlarmItem[] {
+function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource, tier: number): AlarmItem[] {
   const alarms: AlarmItem[] = [];
 
   if (faults.utilityAOpen) {
     alarms.push({
       title: "Utility / SES A Main Open",
       severity: state.pathA.generator ? "Warning" : "Alarm",
-      explanation: state.pathA.generator
-        ? "Path A lost utility power, but Generator A is available. UPS A is shown in transfer because the source is being supported by generator power."
-        : "Path A lost utility power and Generator A is not available. Downstream A-side equipment will lose source support.",
+      explanation:
+        tier >= 2 && state.pathA.generator
+          ? "Path A lost utility power, but Generator A is available. The A path remains supported by standby generation."
+          : "Path A lost utility power. This tier does not currently have an available upstream source to keep the A path energized.",
     });
   }
 
-  if (faults.utilityBOpen) {
+  if (tier >= 4 && faults.utilityBOpen) {
     alarms.push({
       title: "Utility / SES B Main Open",
       severity: state.pathB.generator ? "Warning" : "Alarm",
       explanation: state.pathB.generator
-        ? "Path B lost utility power, but Generator B is available. UPS B is shown in transfer because the source is being supported by generator power."
+        ? "Path B lost utility power, but Generator B is available. The B path remains supported by standby generation."
         : "Path B lost utility power and Generator B is not available. Downstream B-side equipment will lose source support.",
     });
   }
 
-  if (faults.genAFailed) {
+  if (tier >= 2 && faults.genAFailed) {
     alarms.push({
       title: "Generator A Failed",
       severity: faults.utilityAOpen ? "Alarm" : "Info",
@@ -278,7 +289,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     });
   }
 
-  if (faults.genBFailed) {
+  if (tier >= 4 && faults.genBFailed) {
     alarms.push({
       title: "Generator B Failed",
       severity: faults.utilityBOpen ? "Alarm" : "Info",
@@ -288,15 +299,15 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     });
   }
 
-  if (faults.upsAFailed) {
+  if (tier >= 3 && faults.upsAFailed) {
     alarms.push({
       title: "UPS A Failed",
       severity: "Alarm",
-      explanation: "UPS A is failed, so Source A cannot support the STS even if Utility A or Generator A is available.",
+      explanation: "UPS A is failed, so the A source path cannot provide conditioned backup support.",
     });
   }
 
-  if (faults.upsBFailed) {
+  if (tier >= 4 && faults.upsBFailed) {
     alarms.push({
       title: "UPS B Failed",
       severity: "Alarm",
@@ -304,7 +315,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     });
   }
 
-  if (faults.stsFailed) {
+  if (tier >= 4 && faults.stsFailed) {
     alarms.push({
       title: "STS Failed",
       severity: "Critical",
@@ -312,7 +323,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     });
   }
 
-  if (stsMode === "A" && !state.stsA) {
+  if (tier >= 4 && stsMode === "A" && !state.stsA) {
     alarms.push({
       title: "STS Forced to Source A but Source A Unavailable",
       severity: "Critical",
@@ -320,7 +331,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     });
   }
 
-  if (stsMode === "B" && !state.stsB) {
+  if (tier >= 4 && stsMode === "B" && !state.stsB) {
     alarms.push({
       title: "STS Forced to Source B but Source B Unavailable",
       severity: "Critical",
@@ -328,7 +339,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     });
   }
 
-  if (state.selectedSource === "B") {
+  if (tier >= 4 && state.selectedSource === "B") {
     alarms.push({
       title: "STS Transferred to Source B",
       severity: "Warning",
@@ -339,12 +350,12 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
   if (faults.pduAFailed) {
     alarms.push({
       title: "PDU A Failed / Open",
-      severity: state.selectedSource === "A" ? "Critical" : "Warning",
-      explanation: "PDU A is unavailable. If the STS is feeding Source A, A-side RPPs and server loads lose downstream distribution.",
+      severity: state.pduA ? "Warning" : "Alarm",
+      explanation: "PDU A is unavailable. A-side RPPs and server loads lose downstream distribution from this PDU.",
     });
   }
 
-  if (faults.pduBFailed) {
+  if (tier >= 4 && faults.pduBFailed) {
     alarms.push({
       title: "PDU B Failed / Open",
       severity: state.selectedSource === "B" ? "Critical" : "Warning",
@@ -355,12 +366,12 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
   if (faults.rpp1Open) {
     alarms.push({
       title: "RPP1 Open",
-      severity: state.rpp2 ? "Warning" : "Alarm",
-      explanation: "RPP1 is open. Server Row 1 may remain online if another assigned RPP path is still energized.",
+      severity: "Alarm",
+      explanation: "RPP1 is open. Server Row 1 may lose power depending on the current tier and available downstream paths.",
     });
   }
 
-  if (faults.rpp2Open) {
+  if (tier >= 4 && faults.rpp2Open) {
     alarms.push({
       title: "RPP2 Open",
       severity: state.rpp1 ? "Warning" : "Alarm",
@@ -368,7 +379,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     });
   }
 
-  if (faults.rpp3Open) {
+  if (tier >= 4 && faults.rpp3Open) {
     alarms.push({
       title: "RPP3 Open",
       severity: state.rpp4 ? "Warning" : "Alarm",
@@ -376,7 +387,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     });
   }
 
-  if (faults.rpp4Open) {
+  if (tier >= 4 && faults.rpp4Open) {
     alarms.push({
       title: "RPP4 Open",
       severity: state.rpp3 ? "Warning" : "Alarm",
@@ -392,7 +403,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     });
   }
 
-  if (!state.serverRow2) {
+  if (tier >= 4 && !state.serverRow2) {
     alarms.push({
       title: "Server Row 2 Offline",
       severity: "Critical",
@@ -404,7 +415,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
     alarms.push({
       title: "Normal System",
       severity: "Info",
-      explanation: "No active simulated faults. Utility, UPS, STS, PDU, RPP, and server loads are in a normal supported condition.",
+      explanation: "No active simulated faults for the selected tier.",
     });
   }
 
@@ -412,49 +423,57 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource): 
 }
 
 export default function DataCenterPowerTrainer() {
-  const [tier, setTier] = useState(4);
-  const [selectedModule, setSelectedModule] = useState("sts");
+  const [tier, setTier] = useState(0);
+  const [selectedModule, setSelectedModule] = useState("ses");
   const [stsMode, setStsMode] = useState<StsSource>("AUTO");
   const [faults, setFaults] = useState<FaultState>(defaultFaults);
 
   const state = useMemo<SystemState>(() => {
-    const usePathB = tier >= 3;
+    const useGeneratorA = tier >= 2;
+    const useUpsA = tier >= 3;
+    const usePathB = tier >= 4;
+    const useSts = tier >= 4;
+    const useGeneratorB = tier >= 4;
+    const useUpsB = tier >= 4;
 
     const utilityA = !faults.utilityAOpen;
     const utilityB = usePathB && !faults.utilityBOpen;
 
-    const genA = faults.utilityAOpen && !faults.genAFailed;
-    const genB = usePathB && faults.utilityBOpen && !faults.genBFailed;
+    const genA = useGeneratorA && faults.utilityAOpen && !faults.genAFailed;
+    const genB = usePathB && useGeneratorB && faults.utilityBOpen && !faults.genBFailed;
 
     const sourceA = utilityA || genA;
     const sourceB = utilityB || genB;
 
-    const upsA = sourceA && !faults.upsAFailed;
-    const upsB = usePathB && sourceB && !faults.upsBFailed;
+    const upsA = useUpsA ? sourceA && !faults.upsAFailed : sourceA;
+    const upsB = usePathB ? (useUpsB ? sourceB && !faults.upsBFailed : sourceB) : false;
 
-    const stsA = upsA && !faults.stsFailed;
-    const stsB = usePathB && upsB && !faults.stsFailed;
+    const stsA = useSts ? upsA && !faults.stsFailed : upsA;
+    const stsB = usePathB && (useSts ? upsB && !faults.stsFailed : upsB);
 
     let selectedSource: "A" | "B" | "NONE" = "NONE";
 
-    if (stsMode === "AUTO") {
+    if (!useSts) {
+      selectedSource = stsA ? "A" : "NONE";
+    } else if (stsMode === "AUTO") {
       if (stsA) selectedSource = "A";
       else if (stsB) selectedSource = "B";
+    } else if (stsMode === "A") {
+      selectedSource = stsA ? "A" : "NONE";
+    } else if (stsMode === "B") {
+      selectedSource = stsB ? "B" : "NONE";
     }
 
-    if (stsMode === "A") selectedSource = stsA ? "A" : "NONE";
-    if (stsMode === "B") selectedSource = stsB ? "B" : "NONE";
-
     const pduA = selectedSource === "A" && !faults.pduAFailed;
-    const pduB = selectedSource === "B" && !faults.pduBFailed;
+    const pduB = usePathB && selectedSource === "B" && !faults.pduBFailed;
 
     const rpp1 = pduA && !faults.rpp1Open;
-    const rpp2 = pduA && !faults.rpp2Open;
-    const rpp3 = pduB && !faults.rpp3Open;
-    const rpp4 = pduB && !faults.rpp4Open;
+    const rpp2 = usePathB && pduA && !faults.rpp2Open;
+    const rpp3 = usePathB && pduB && !faults.rpp3Open;
+    const rpp4 = usePathB && pduB && !faults.rpp4Open;
 
-    const serverRow1 = tier >= 4 ? rpp1 || rpp2 || rpp3 || rpp4 : rpp1 || rpp2;
-    const serverRow2 = tier >= 4 ? rpp1 || rpp2 || rpp3 || rpp4 : rpp3 || rpp4;
+    const serverRow1 = usePathB ? rpp1 || rpp2 || rpp3 || rpp4 : rpp1;
+    const serverRow2 = usePathB ? rpp1 || rpp2 || rpp3 || rpp4 : false;
 
     return {
       pathA: {
@@ -462,14 +481,14 @@ export default function DataCenterPowerTrainer() {
         generator: genA,
         source: sourceA,
         ups: upsA,
-        status: upsA ? (utilityA ? "energized" : "transfer") : "failed",
+        status: upsA ? (useUpsA && !utilityA ? "transfer" : "energized") : "failed",
       },
       pathB: {
         utility: utilityB,
         generator: genB,
         source: sourceB,
         ups: upsB,
-        status: upsB ? (utilityB ? "energized" : "transfer") : usePathB ? "failed" : "deenergized",
+        status: upsB ? (useUpsB && !utilityB ? "transfer" : "energized") : usePathB ? "failed" : "deenergized",
       },
       stsA,
       stsB,
@@ -487,7 +506,7 @@ export default function DataCenterPowerTrainer() {
   }, [faults, stsMode, tier]);
 
   const selected = MODULES.find((m) => m.id === selectedModule) || MODULES[0];
-  const alarms = getAlarms(faults, state, stsMode);
+  const alarms = getAlarms(faults, state, stsMode, tier);
 
   function flip(key: keyof FaultState) {
     setFaults((old) => ({ ...old, [key]: !old[key] }));
@@ -505,7 +524,7 @@ export default function DataCenterPowerTrainer() {
           <div>
             <h1 className="text-3xl font-black tracking-tight md:text-5xl">Data Center Power Path Trainer</h1>
             <p className="mt-2 max-w-3xl text-base text-slate-600 md:text-lg">
-              Tier I-IV simulator based on your physical model: SES, generators, UPS, STS, PDU, RPP, and server rows.
+              Tier 0-4 simulator based on your physical model: SES, generator, UPS, STS, PDU, RPP, and server rows.
             </p>
           </div>
 
@@ -520,7 +539,9 @@ export default function DataCenterPowerTrainer() {
                 <div>
                   <div className="text-sm font-semibold text-slate-500">Load Status</div>
                   <div className="text-xl font-black">{state.loadOnline ? "SERVERS ONLINE" : "SERVERS OFFLINE"}</div>
-                  <div className="text-xs font-semibold text-slate-500">STS Source: {state.selectedSource}</div>
+                  <div className="text-xs font-semibold text-slate-500">
+                    {tier >= 4 ? `STS Source: ${state.selectedSource}` : `Source: ${state.selectedSource}`}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -532,78 +553,252 @@ export default function DataCenterPowerTrainer() {
             <CardContent className="p-4 md:p-6">
               <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="text-2xl font-black">Tier IV A/B One-Line</h2>
+                  <h2 className="text-2xl font-black">Tier {tier} One-Line</h2>
                   <p className="text-sm text-slate-600">
-                    Click equipment blocks directly. The one-line scrolls sideways on smaller screens.
+                    Click equipment blocks directly. Only modules that exist in the selected tier are shown.
                   </p>
                 </div>
                 <Badge className="w-fit rounded-xl px-3 py-1 text-sm">Tier {tier}</Badge>
               </div>
 
               <div className="overflow-x-auto rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
-                <div className="min-w-[1500px] space-y-10">
+                <div className="min-w-[900px] space-y-10">
                   <div>
                     <div className="mb-3 text-xl font-black">PATH A</div>
-                    <div className="grid grid-cols-[170px_40px_170px_40px_170px_40px_170px_40px_170px_40px_170px_40px_170px_40px_170px] items-center gap-2">
-                      <ModuleCard label="Utility A" icon={Zap} status={boolStatus(state.pathA.utility)} onClick={() => { setSelectedModule("utility"); flip("utilityAOpen"); }} />
-                      <HorizontalLine active={state.pathA.utility} />
-                      <ModuleCard label="SES A" icon={GitBranch} status={state.pathA.source ? "energized" : "failed"} onClick={() => { setSelectedModule("ses"); flip("utilityAOpen"); }} />
-                      <HorizontalLine active={state.pathA.source} />
-                      <ModuleCard label="GEN A" icon={RotateCcw} status={faults.utilityAOpen ? boolStatus(state.pathA.generator) : "deenergized"} onClick={() => { setSelectedModule("gen"); flip("genAFailed"); }} />
-                      <HorizontalLine active={state.pathA.source} />
-                      <ModuleCard label="UPS A" icon={Battery} status={state.pathA.status} onClick={() => { setSelectedModule("ups"); flip("upsAFailed"); }} />
-                      <HorizontalLine active={state.stsA} />
-                      <ModuleCard label="STS A Input" icon={GitBranch} status={state.stsA ? "energized" : "failed"} onClick={() => { setSelectedModule("sts"); setStsMode("A"); }} />
-                      <HorizontalLine active={state.pduA} />
-                      <ModuleCard label="PDU A" icon={Power} status={boolStatus(state.pduA)} onClick={() => { setSelectedModule("pdu"); flip("pduAFailed"); }} />
-                      <HorizontalLine active={state.pduA} />
-                      <ModuleCard label="RPP1" icon={GitBranch} status={boolStatus(state.rpp1)} onClick={() => { setSelectedModule("rpp"); flip("rpp1Open"); }} />
-                      <HorizontalLine active={state.rpp1} />
-                      <ModuleCard label="Server Row 1" icon={Server} status={boolStatus(state.serverRow1)} onClick={() => setSelectedModule("servers")} />
+                    <div className="flex items-center gap-2">
+                      <LineBox>
+                        <ModuleCard
+                          label="Utility A"
+                          icon={Zap}
+                          status={boolStatus(state.pathA.utility)}
+                          onClick={() => {
+                            setSelectedModule("utility");
+                            flip("utilityAOpen");
+                          }}
+                        />
+                      </LineBox>
+                      <WireBox active={state.pathA.utility} />
+                      <LineBox>
+                        <ModuleCard
+                          label="SES A"
+                          icon={GitBranch}
+                          status={state.pathA.source ? "energized" : "failed"}
+                          onClick={() => {
+                            setSelectedModule("ses");
+                            flip("utilityAOpen");
+                          }}
+                        />
+                      </LineBox>
+
+                      {tier >= 2 && (
+                        <>
+                          <WireBox active={state.pathA.source} />
+                          <LineBox>
+                            <ModuleCard
+                              label="GEN A"
+                              icon={RotateCcw}
+                              status={faults.utilityAOpen ? boolStatus(state.pathA.generator) : "deenergized"}
+                              onClick={() => {
+                                setSelectedModule("gen");
+                                flip("genAFailed");
+                              }}
+                            />
+                          </LineBox>
+                        </>
+                      )}
+
+                      {tier >= 3 && (
+                        <>
+                          <WireBox active={state.pathA.source} />
+                          <LineBox>
+                            <ModuleCard
+                              label="UPS A"
+                              icon={Battery}
+                              status={state.pathA.status}
+                              onClick={() => {
+                                setSelectedModule("ups");
+                                flip("upsAFailed");
+                              }}
+                            />
+                          </LineBox>
+                        </>
+                      )}
+
+                      {tier >= 4 && (
+                        <>
+                          <WireBox active={state.stsA} />
+                          <LineBox>
+                            <ModuleCard
+                              label="STS A Input"
+                              icon={GitBranch}
+                              status={state.stsA ? "energized" : "failed"}
+                              onClick={() => {
+                                setSelectedModule("sts");
+                                setStsMode("A");
+                              }}
+                            />
+                          </LineBox>
+                        </>
+                      )}
+
+                      <WireBox active={state.pduA} />
+                      <LineBox>
+                        <ModuleCard
+                          label="PDU A"
+                          icon={Power}
+                          status={boolStatus(state.pduA)}
+                          onClick={() => {
+                            setSelectedModule("pdu");
+                            flip("pduAFailed");
+                          }}
+                        />
+                      </LineBox>
+                      <WireBox active={state.pduA} />
+                      <LineBox>
+                        <ModuleCard
+                          label="RPP1"
+                          icon={GitBranch}
+                          status={boolStatus(state.rpp1)}
+                          onClick={() => {
+                            setSelectedModule("rpp");
+                            flip("rpp1Open");
+                          }}
+                        />
+                      </LineBox>
+                      <WireBox active={state.rpp1} />
+                      <LineBox>
+                        <ModuleCard
+                          label="Server Row 1"
+                          icon={Server}
+                          status={boolStatus(state.serverRow1)}
+                          onClick={() => setSelectedModule("servers")}
+                        />
+                      </LineBox>
                     </div>
                   </div>
 
-                  <div>
-                    <div className="mb-3 text-xl font-black">PATH B</div>
-                    <div className="grid grid-cols-[170px_40px_170px_40px_170px_40px_170px_40px_170px_40px_170px_40px_170px_40px_170px] items-center gap-2">
-                      <ModuleCard label="Utility B" icon={Zap} status={tier >= 3 ? boolStatus(state.pathB.utility) : "deenergized"} onClick={() => { setSelectedModule("utility"); flip("utilityBOpen"); }} />
-                      <HorizontalLine active={state.pathB.utility} />
-                      <ModuleCard label="SES B" icon={GitBranch} status={tier >= 3 ? (state.pathB.source ? "energized" : "failed") : "deenergized"} onClick={() => { setSelectedModule("ses"); flip("utilityBOpen"); }} />
-                      <HorizontalLine active={state.pathB.source} />
-                      <ModuleCard label="GEN B" icon={RotateCcw} status={tier >= 2 && faults.utilityBOpen ? boolStatus(state.pathB.generator) : "deenergized"} onClick={() => { setSelectedModule("gen"); flip("genBFailed"); }} />
-                      <HorizontalLine active={state.pathB.source} />
-                      <ModuleCard label="UPS B" icon={Battery} status={state.pathB.status} onClick={() => { setSelectedModule("ups"); flip("upsBFailed"); }} />
-                      <HorizontalLine active={state.stsB} />
-                      <ModuleCard label="STS B Input" icon={GitBranch} status={state.stsB ? "energized" : "failed"} onClick={() => { setSelectedModule("sts"); setStsMode("B"); }} />
-                      <HorizontalLine active={state.pduB} />
-                      <ModuleCard label="PDU B" icon={Power} status={boolStatus(state.pduB)} onClick={() => { setSelectedModule("pdu"); flip("pduBFailed"); }} />
-                      <HorizontalLine active={state.pduB} />
-                      <ModuleCard label="RPP3" icon={GitBranch} status={boolStatus(state.rpp3)} onClick={() => { setSelectedModule("rpp"); flip("rpp3Open"); }} />
-                      <HorizontalLine active={state.rpp3} />
-                      <ModuleCard label="Server Row 2" icon={Server} status={boolStatus(state.serverRow2)} onClick={() => setSelectedModule("servers")} />
+                  {tier >= 4 && (
+                    <div>
+                      <div className="mb-3 text-xl font-black">PATH B</div>
+                      <div className="flex items-center gap-2">
+                        <LineBox>
+                          <ModuleCard
+                            label="Utility B"
+                            icon={Zap}
+                            status={boolStatus(state.pathB.utility)}
+                            onClick={() => {
+                              setSelectedModule("utility");
+                              flip("utilityBOpen");
+                            }}
+                          />
+                        </LineBox>
+                        <WireBox active={state.pathB.utility} />
+                        <LineBox>
+                          <ModuleCard
+                            label="SES B"
+                            icon={GitBranch}
+                            status={state.pathB.source ? "energized" : "failed"}
+                            onClick={() => {
+                              setSelectedModule("ses");
+                              flip("utilityBOpen");
+                            }}
+                          />
+                        </LineBox>
+                        <WireBox active={state.pathB.source} />
+                        <LineBox>
+                          <ModuleCard
+                            label="GEN B"
+                            icon={RotateCcw}
+                            status={faults.utilityBOpen ? boolStatus(state.pathB.generator) : "deenergized"}
+                            onClick={() => {
+                              setSelectedModule("gen");
+                              flip("genBFailed");
+                            }}
+                          />
+                        </LineBox>
+                        <WireBox active={state.pathB.source} />
+                        <LineBox>
+                          <ModuleCard
+                            label="UPS B"
+                            icon={Battery}
+                            status={state.pathB.status}
+                            onClick={() => {
+                              setSelectedModule("ups");
+                              flip("upsBFailed");
+                            }}
+                          />
+                        </LineBox>
+                        <WireBox active={state.stsB} />
+                        <LineBox>
+                          <ModuleCard
+                            label="STS B Input"
+                            icon={GitBranch}
+                            status={state.stsB ? "energized" : "failed"}
+                            onClick={() => {
+                              setSelectedModule("sts");
+                              setStsMode("B");
+                            }}
+                          />
+                        </LineBox>
+                        <WireBox active={state.pduB} />
+                        <LineBox>
+                          <ModuleCard
+                            label="PDU B"
+                            icon={Power}
+                            status={boolStatus(state.pduB)}
+                            onClick={() => {
+                              setSelectedModule("pdu");
+                              flip("pduBFailed");
+                            }}
+                          />
+                        </LineBox>
+                        <WireBox active={state.pduB} />
+                        <LineBox>
+                          <ModuleCard
+                            label="RPP3"
+                            icon={GitBranch}
+                            status={boolStatus(state.rpp3)}
+                            onClick={() => {
+                              setSelectedModule("rpp");
+                              flip("rpp3Open");
+                            }}
+                          />
+                        </LineBox>
+                        <WireBox active={state.rpp3} />
+                        <LineBox>
+                          <ModuleCard
+                            label="Server Row 2"
+                            icon={Server}
+                            status={boolStatus(state.serverRow2)}
+                            onClick={() => setSelectedModule("servers")}
+                          />
+                        </LineBox>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
-              <div className="mt-5 rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
-                <div className="mb-3 text-center text-lg font-black">STS Source Selector</div>
-                <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
-                  {(["AUTO", "A", "B"] as StsSource[]).map((mode) => (
-                    <Button
-                      key={mode}
-                      variant={stsMode === mode ? "default" : "outline"}
-                      className="rounded-xl px-2 py-2 text-sm"
-                      onClick={() => setStsMode(mode)}
-                    >
-                      {mode}
-                    </Button>
-                  ))}
+              {tier >= 4 && (
+                <div className="mt-5 rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
+                  <div className="mb-3 text-center text-lg font-black">STS Source Selector</div>
+                  <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+                    {(["AUTO", "A", "B"] as StsSource[]).map((mode) => (
+                      <Button
+                        key={mode}
+                        variant={stsMode === mode ? "default" : "outline"}
+                        className="rounded-xl px-2 py-2 text-sm"
+                        onClick={() => setStsMode(mode)}
+                      >
+                        {mode}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-center text-sm font-semibold text-slate-600">
+                    Selected Source: {state.selectedSource}
+                  </div>
                 </div>
-                <div className="mt-3 text-center text-sm font-semibold text-slate-600">
-                  Selected Source: {state.selectedSource}
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -620,12 +815,15 @@ export default function DataCenterPowerTrainer() {
               <CardContent className="space-y-4 p-5">
                 <h2 className="text-xl font-black">Tier Selection</h2>
                 <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map((value) => (
+                  {availableTiers.map((value) => (
                     <Button
                       key={value}
                       variant={tier === value ? "default" : "outline"}
                       className="rounded-2xl"
-                      onClick={() => setTier(value)}
+                      onClick={() => {
+                        setTier(value);
+                        reset();
+                      }}
                     >
                       {value}
                     </Button>
