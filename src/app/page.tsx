@@ -116,12 +116,13 @@ const MODULES: ModuleItem[] = [
 
 const tierDescriptions: Record<number, string> = {
   0: "Tier 0: Basic single path. Utility / SES feeds PDU, RPP, and server load. No generator, UPS, STS, or B path.",
+  1: "Tier 1: Basic single-path data center distribution. This shows the same core path as Tier 0, but identifies it as the first formal training tier.",
   2: "Tier 2: Adds Generator A to support the single A path during utility loss.",
   3: "Tier 3: Adds UPS A to the A path so the load can ride through transfer from utility to generator.",
   4: "Tier 4: Adds the STS and full A/B source concept with Path B, UPS B, PDU B, and additional downstream redundancy.",
 };
 
-const availableTiers = [0, 2, 3, 4];
+const availableTiers = [0, 1, 2, 3, 4];
 
 const defaultFaults: FaultState = {
   utilityAOpen: false,
@@ -805,16 +806,8 @@ export default function DataCenterPowerTrainer() {
           <div className="space-y-6">
             <Card className="rounded-3xl shadow-sm">
               <CardContent className="space-y-4 p-5">
-                <h2 className="text-xl font-black">Selected Lesson</h2>
-                <h3 className="text-2xl font-black">{selected.label}</h3>
-                <p className="text-sm leading-6 text-slate-600">{selected.lesson}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-3xl shadow-sm">
-              <CardContent className="space-y-4 p-5">
                 <h2 className="text-xl font-black">Tier Selection</h2>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-2">
                   {availableTiers.map((value) => (
                     <Button
                       key={value}
@@ -852,6 +845,14 @@ export default function DataCenterPowerTrainer() {
                 <Button variant="ghost" onClick={reset} className="w-full rounded-xl">
                   Reset Entire System
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-3xl shadow-sm">
+              <CardContent className="space-y-4 p-5">
+                <h2 className="text-xl font-black">Selected Lesson</h2>
+                <h3 className="text-2xl font-black">{selected.label}</h3>
+                <p className="text-sm leading-6 text-slate-600">{selected.lesson}</p>
               </CardContent>
             </Card>
           </div>
