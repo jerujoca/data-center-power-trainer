@@ -243,6 +243,35 @@ function ModuleCard({
   icon?: React.ElementType;
 }) {
   const DisplayIcon = Icon || Power;
+
+  return (
+    <motion.button
+      layout
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`w-full rounded-2xl border-2 p-3 text-left shadow-sm transition ${statusColor(status)} ${
+        selected ? "ring-4 ring-slate-900/20" : ""
+      }`}
+    >
+      <div className="flex min-h-[90px] flex-col items-center justify-center gap-2 text-center">
+        <DisplayIcon className="h-6 w-6 shrink-0" />
+        <div>
+          <div className="text-sm font-bold leading-tight">{label}</div>
+          <div className="text-[10px] font-semibold opacity-90">{statusText(status)}</div>
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+: {
+  label: string;
+  status: ModuleStatus;
+  selected?: boolean;
+  onClick?: () => void;
+  icon?: React.ElementType;
+}) {
+  const DisplayIcon = Icon || Power;
   return (
     <motion.button
       layout
@@ -386,148 +415,14 @@ export default function DataCenterPowerTrainer() {
 
         <div className="grid gap-6 xl:grid-cols-[1fr_390px]">
           <Card className="rounded-3xl shadow-sm">
-            <CardContent className="p-4 md:p-6">
-              <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-2xl font-black">Tier IV A/B One-Line</h2>
-                  <p className="text-sm text-slate-600">Tap major equipment groups to read the lesson.</p>
-                </div>
-                <Badge className="w-fit rounded-xl px-3 py-1 text-sm">Tier {tier}</Badge>
-              </div>
-
-              <div className="space-y-6">
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <div className="rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
-                    <div className="mb-4 text-center text-2xl font-black">PATH A</div>
-                    <div className="grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
-                      <ModuleCard label="Utility A" icon={Zap} status={boolStatus(state.pathA.utility)} onClick={() => setSelectedModule("utility")} selected={selectedModule === "utility"} />
-                      <HorizontalLine active={state.pathA.utility} />
-                      <ModuleCard label="SES A" icon={GitBranch} status={state.pathA.source ? "energized" : "failed"} onClick={() => setSelectedModule("ses")} selected={selectedModule === "ses"} />
-                    </div>
-                    <div className="my-3 grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
-                      <ModuleCard label="GEN A" icon={RotateCcw} status={faults.utilityAOpen ? boolStatus(state.pathA.generator) : "deenergized"} onClick={() => setSelectedModule("gsb")} selected={selectedModule === "gsb"} />
-                      <HorizontalLine active={state.pathA.source} />
-                      <ModuleCard label="UPS A" icon={Battery} status={state.pathA.status} onClick={() => setSelectedModule("ups")} selected={selectedModule === "ups"} />
-                    </div>
-                    <div className="grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
-                      <div />
-                      <HorizontalLine active={state.stsA} />
-                      <ModuleCard label="STS A Input" icon={GitBranch} status={state.stsA ? "energized" : "failed"} onClick={() => setSelectedModule("sts")} selected={selectedModule === "sts"} />
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
-                    <div className="mb-4 text-center text-2xl font-black">PATH B</div>
-                    <div className="grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
-                      <ModuleCard label="Utility B" icon={Zap} status={tier >= 3 ? boolStatus(state.pathB.utility) : "deenergized"} onClick={() => setSelectedModule("utility")} selected={selectedModule === "utility"} />
-                      <HorizontalLine active={state.pathB.utility} />
-                      <ModuleCard label="SES B" icon={GitBranch} status={tier >= 3 ? (state.pathB.source ? "energized" : "failed") : "deenergized"} onClick={() => setSelectedModule("ses")} selected={selectedModule === "ses"} />
-                    </div>
-                    <div className="my-3 grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
-                      <ModuleCard label="GEN B" icon={RotateCcw} status={tier >= 2 && faults.utilityBOpen ? boolStatus(state.pathB.generator) : "deenergized"} onClick={() => setSelectedModule("gsb")} selected={selectedModule === "gsb"} />
-                      <HorizontalLine active={state.pathB.source} />
-                      <ModuleCard label="UPS B" icon={Battery} status={state.pathB.status} onClick={() => setSelectedModule("ups")} selected={selectedModule === "ups"} />
-                    </div>
-                    <div className="grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
-                      <div />
-                      <HorizontalLine active={state.stsB} />
-                      <ModuleCard label="STS B Input" icon={GitBranch} status={state.stsB ? "energized" : "failed"} onClick={() => setSelectedModule("sts")} selected={selectedModule === "sts"} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
-                  <div className="mb-3 text-center text-lg font-black">STS Source Selector</div>
-                  <div className="grid w-full grid-cols-3 gap-2 max-w-md mx-auto">
-                    {(["AUTO", "A", "B"] as StsSource[]).map((mode) => (
-                      <Button key={mode} variant={stsMode === mode ? "default" : "outline"} className="rounded-xl px-2 py-2 text-sm" onClick={() => setStsMode(mode)}>
-                        {mode}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="mt-3 text-center text-sm font-semibold text-slate-600">Selected Source: {state.selectedSource}</div>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Card className="rounded-3xl shadow-sm">
-                  <CardContent className="space-y-3 p-4">
-                    <div className="text-center text-lg font-black">PDU / RPP A SIDE</div>
-                    <ModuleCard label="PDU A" icon={Power} status={boolStatus(state.pduA)} onClick={() => setSelectedModule("pdu")} selected={selectedModule === "pdu"} />
-                    <div className="grid grid-cols-2 gap-3">
-                      <ModuleCard label="RPP1" icon={GitBranch} status={boolStatus(state.rpp1)} onClick={() => setSelectedModule("rpp")} selected={selectedModule === "rpp"} />
-                      <ModuleCard label="RPP2" icon={GitBranch} status={boolStatus(state.rpp2)} onClick={() => setSelectedModule("rpp")} selected={selectedModule === "rpp"} />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-3xl shadow-sm">
-                  <CardContent className="space-y-3 p-4">
-                    <div className="text-center text-lg font-black">PDU / RPP B SIDE</div>
-                    <ModuleCard label="PDU B" icon={Power} status={boolStatus(state.pduB)} onClick={() => setSelectedModule("pdu")} selected={selectedModule === "pdu"} />
-                    <div className="grid grid-cols-2 gap-3">
-                      <ModuleCard label="RPP3" icon={GitBranch} status={boolStatus(state.rpp3)} onClick={() => setSelectedModule("rpp")} selected={selectedModule === "rpp"} />
-                      <ModuleCard label="RPP4" icon={GitBranch} status={boolStatus(state.rpp4)} onClick={() => setSelectedModule("rpp")} selected={selectedModule === "rpp"} />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <ModuleCard label="Server Row 1" icon={Server} status={boolStatus(state.serverRow1)} onClick={() => setSelectedModule("servers")} selected={selectedModule === "servers"} />
-                <ModuleCard label="Server Row 2" icon={Server} status={boolStatus(state.serverRow2)} onClick={() => setSelectedModule("servers")} selected={selectedModule === "servers"} />
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="space-y-6">
-            <Card className="rounded-3xl shadow-sm">
               <CardContent className="space-y-4 p-5">
-                <h2 className="text-xl font-black">Selected Lesson</h2>
-                <h3 className="text-2xl font-black">{selected.label}</h3>
-                <p className="text-sm leading-6 text-slate-600">{selected.lesson}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-3xl shadow-sm">
-              <CardContent className="space-y-4 p-5">
-                <h2 className="text-xl font-black">Tier Selection</h2>
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map((value) => (
-                    <Button key={value} variant={tier === value ? "default" : "outline"} className="rounded-2xl" onClick={() => setTier(value)}>
-                      {value}
-                    </Button>
-                  ))}
-                </div>
-                <p className="text-sm leading-6 text-slate-600">{tierDescriptions[tier]}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-3xl shadow-sm">
-              <CardContent className="space-y-3 p-5">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-black">Fault Controls</h2>
-                  <Button variant="ghost" onClick={reset} className="rounded-xl">
-                    Reset
-                  </Button>
-                </div>
-                <div className="grid gap-2">
-                  <ToggleButton active={faults.utilityAOpen} onClick={() => flip("utilityAOpen")}>Open Utility / SES A Main</ToggleButton>
-                  <ToggleButton active={faults.utilityBOpen} onClick={() => flip("utilityBOpen")}>Open Utility / SES B Main</ToggleButton>
-                  <ToggleButton active={faults.genAFailed} onClick={() => flip("genAFailed")}>Fail Generator A</ToggleButton>
-                  <ToggleButton active={faults.genBFailed} onClick={() => flip("genBFailed")}>Fail Generator B</ToggleButton>
-                  <ToggleButton active={faults.upsAFailed} onClick={() => flip("upsAFailed")}>Fail UPS A</ToggleButton>
-                  <ToggleButton active={faults.upsBFailed} onClick={() => flip("upsBFailed")}>Fail UPS B</ToggleButton>
-                  <ToggleButton active={faults.stsFailed} onClick={() => flip("stsFailed")}>Fail STS</ToggleButton>
-                  <ToggleButton active={faults.pduACb1Open} onClick={() => flip("pduACb1Open")}>Open PDU-A CB1 / RPP1 Feed</ToggleButton>
-                  <ToggleButton active={faults.pduACb2Open} onClick={() => flip("pduACb2Open")}>Open PDU-A CB2 / RPP2 Feed</ToggleButton>
-                  <ToggleButton active={faults.pduBCb1Open} onClick={() => flip("pduBCb1Open")}>Open PDU-B CB1 / RPP3 Feed</ToggleButton>
-                  <ToggleButton active={faults.pduBCb2Open} onClick={() => flip("pduBCb2Open")}>Open PDU-B CB2 / RPP4 Feed</ToggleButton>
-                  <ToggleButton active={faults.rpp1Open} onClick={() => flip("rpp1Open")}>Open RPP1</ToggleButton>
-                  <ToggleButton active={faults.rpp2Open} onClick={() => flip("rpp2Open")}>Open RPP2</ToggleButton>
-                  <ToggleButton active={faults.rpp3Open} onClick={() => flip("rpp3Open")}>Open RPP3</ToggleButton>
-                  <ToggleButton active={faults.rpp4Open} onClick={() => flip("rpp4Open")}>Open RPP4</ToggleButton>
-                </div>
+                <h2 className="text-xl font-black">Interactive One-Line Controls</h2>
+                <p className="text-sm leading-6 text-slate-600">
+                  Click the equipment blocks directly in the Tier IV A/B one-line above to simulate breaker openings, generator failures, UPS failures, STS source transfers, and downstream branch failures.
+                </p>
+                <Button variant="ghost" onClick={reset} className="rounded-xl w-full">
+                  Reset Entire System
+                </Button>
               </CardContent>
             </Card>
           </div>
