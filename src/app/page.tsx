@@ -1,3 +1,7 @@
+@/components/ui/card
+@/components/ui/button
+@/components/ui/badge
+@/components/ui/tabs
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
