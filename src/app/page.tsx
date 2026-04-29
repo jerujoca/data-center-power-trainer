@@ -115,14 +115,13 @@ const MODULES: ModuleItem[] = [
 ];
 
 const tierDescriptions: Record<number, string> = {
-  0: "Tier 0: Basic single path. Utility / SES feeds PDU, RPP, and server load. No generator, UPS, STS, or B path.",
-  1: "Tier 1: Basic single-path data center distribution. This shows the same core path as Tier 0, but identifies it as the first formal training tier.",
+  1: "Tier 1: Basic single-path data center distribution. Utility / SES feeds PDU, RPP, and server load.",
   2: "Tier 2: Adds Generator A to support the single A path during utility loss.",
   3: "Tier 3: Adds UPS A to the A path so the load can ride through transfer from utility to generator.",
   4: "Tier 4: Adds the STS and full A/B source concept with Path B, UPS B, PDU B, and additional downstream redundancy.",
 };
 
-const availableTiers = [0, 1, 2, 3, 4];
+const availableTiers = [1, 2, 3, 4];
 
 const defaultFaults: FaultState = {
   utilityAOpen: false,
@@ -424,7 +423,7 @@ function getAlarms(faults: FaultState, state: SystemState, stsMode: StsSource, t
 }
 
 export default function DataCenterPowerTrainer() {
-  const [tier, setTier] = useState(0);
+  const [tier, setTier] = useState(1);
   const [selectedModule, setSelectedModule] = useState("ses");
   const [stsMode, setStsMode] = useState<StsSource>("AUTO");
   const [faults, setFaults] = useState<FaultState>(defaultFaults);
@@ -525,7 +524,7 @@ export default function DataCenterPowerTrainer() {
           <div>
             <h1 className="text-3xl font-black tracking-tight md:text-5xl">Data Center Power Path Trainer</h1>
             <p className="mt-2 max-w-3xl text-base text-slate-600 md:text-lg">
-              Tier 0-4 simulator based on your physical model: SES, generator, UPS, STS, PDU, RPP, and server rows.
+              Tier 1-4 simulator based on your physical model: SES, generator, UPS, STS, PDU, RPP, and server rows.
             </p>
           </div>
 
@@ -549,7 +548,30 @@ export default function DataCenterPowerTrainer() {
           </Card>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1fr_390px]">
+        <div className="space-y-6">
+          <Card className="rounded-3xl shadow-sm">
+            <CardContent className="space-y-4 p-5">
+              <h2 className="text-xl font-black">Tier Selection</h2>
+              <div className="grid grid-cols-4 gap-2 max-w-md">
+                {availableTiers.map((value) => (
+                  <Button
+                    key={value}
+                    variant={tier === value ? "default" : "outline"}
+                    className="rounded-2xl"
+                    onClick={() => {
+                      setTier(value);
+                      reset();
+                    }}
+                  >
+                    {value}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-sm leading-6 text-slate-600">{tierDescriptions[tier]}</p>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 xl:grid-cols-[1fr_390px]">
           <Card className="rounded-3xl shadow-sm">
             <CardContent className="p-4 md:p-6">
               <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -804,28 +826,6 @@ export default function DataCenterPowerTrainer() {
           </Card>
 
           <div className="space-y-6">
-            <Card className="rounded-3xl shadow-sm">
-              <CardContent className="space-y-4 p-5">
-                <h2 className="text-xl font-black">Tier Selection</h2>
-                <div className="grid grid-cols-5 gap-2">
-                  {availableTiers.map((value) => (
-                    <Button
-                      key={value}
-                      variant={tier === value ? "default" : "outline"}
-                      className="rounded-2xl"
-                      onClick={() => {
-                        setTier(value);
-                        reset();
-                      }}
-                    >
-                      {value}
-                    </Button>
-                  ))}
-                </div>
-                <p className="text-sm leading-6 text-slate-600">{tierDescriptions[tier]}</p>
-              </CardContent>
-            </Card>
-
             <Card className="rounded-3xl shadow-sm">
               <CardContent className="space-y-4 p-5">
                 <h2 className="text-xl font-black">Fault / Alarm Explanation</h2>
