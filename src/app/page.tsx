@@ -584,8 +584,8 @@ export default function DataCenterPowerTrainer() {
                 <Badge className="w-fit rounded-xl px-3 py-1 text-sm">Tier {tier}</Badge>
               </div>
 
-              <div className="overflow-x-auto rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
-                <div className="min-w-[900px] space-y-10">
+              <div className="overflow-x-auto rounded-3xl border-2 border-slate-300 bg-slate-50 p-4 w-full">
+                <div className="min-w-max space-y-10">
                   <div>
                     <div className="mb-3 text-xl font-black">PATH A</div>
                     <div className="flex items-center gap-2">
