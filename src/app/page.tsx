@@ -858,6 +858,7 @@ export default function DataCenterPowerTrainer() {
           </div>
         </div>
       </div>
+      </div>
     </main>
   );
 }
