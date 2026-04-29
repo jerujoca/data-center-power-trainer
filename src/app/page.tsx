@@ -395,25 +395,49 @@ export default function DataCenterPowerTrainer() {
                 <Badge className="w-fit rounded-xl px-3 py-1 text-sm">Tier {tier}</Badge>
               </div>
 
-              <div className="space-y-8">
-                <div>
-                  <div className="mb-4 text-center text-2xl font-black">PATH A</div>
-                  <div className="grid gap-3 md:grid-cols-5 items-center">
-                    <ModuleCard label="Utility A" icon={Zap} status={boolStatus(state.pathA.utility)} onClick={() => setSelectedModule("utility")} selected={selectedModule === "utility"} />
-                    <HorizontalLine active={state.pathA.utility} />
-                    <ModuleCard label="SES A" icon={GitBranch} status={state.pathA.source ? "energized" : "failed"} onClick={() => setSelectedModule("ses")} selected={selectedModule === "ses"} />
-                    <HorizontalLine active={state.pathA.source} />
-                    <ModuleCard label="GEN A" icon={RotateCcw} status={faults.utilityAOpen ? boolStatus(state.pathA.generator) : "deenergized"} onClick={() => setSelectedModule("gsb")} selected={selectedModule === "gsb"} />
+              <div className="space-y-6">
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
+                    <div className="mb-4 text-center text-2xl font-black">PATH A</div>
+                    <div className="grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
+                      <ModuleCard label="Utility A" icon={Zap} status={boolStatus(state.pathA.utility)} onClick={() => setSelectedModule("utility")} selected={selectedModule === "utility"} />
+                      <HorizontalLine active={state.pathA.utility} />
+                      <ModuleCard label="SES A" icon={GitBranch} status={state.pathA.source ? "energized" : "failed"} onClick={() => setSelectedModule("ses")} selected={selectedModule === "ses"} />
+                    </div>
+                    <div className="my-3 grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
+                      <ModuleCard label="GEN A" icon={RotateCcw} status={faults.utilityAOpen ? boolStatus(state.pathA.generator) : "deenergized"} onClick={() => setSelectedModule("gsb")} selected={selectedModule === "gsb"} />
+                      <HorizontalLine active={state.pathA.source} />
+                      <ModuleCard label="UPS A" icon={Battery} status={state.pathA.status} onClick={() => setSelectedModule("ups")} selected={selectedModule === "ups"} />
+                    </div>
+                    <div className="grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
+                      <div />
+                      <HorizontalLine active={state.stsA} />
+                      <ModuleCard label="STS A Input" icon={GitBranch} status={state.stsA ? "energized" : "failed"} onClick={() => setSelectedModule("sts")} selected={selectedModule === "sts"} />
+                    </div>
                   </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-3 items-center">
-                    <ModuleCard label="UPS A" icon={Battery} status={state.pathA.status} onClick={() => setSelectedModule("ups")} selected={selectedModule === "ups"} />
-                    <HorizontalLine active={state.stsA} />
-                    <ModuleCard label="STS" icon={GitBranch} status={faults.stsFailed ? "failed" : state.selectedSource === "NONE" ? "failed" : "energized"} onClick={() => setSelectedModule("sts")} selected={selectedModule === "sts"} />
+
+                  <div className="rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
+                    <div className="mb-4 text-center text-2xl font-black">PATH B</div>
+                    <div className="grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
+                      <ModuleCard label="Utility B" icon={Zap} status={tier >= 3 ? boolStatus(state.pathB.utility) : "deenergized"} onClick={() => setSelectedModule("utility")} selected={selectedModule === "utility"} />
+                      <HorizontalLine active={state.pathB.utility} />
+                      <ModuleCard label="SES B" icon={GitBranch} status={tier >= 3 ? (state.pathB.source ? "energized" : "failed") : "deenergized"} onClick={() => setSelectedModule("ses")} selected={selectedModule === "ses"} />
+                    </div>
+                    <div className="my-3 grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
+                      <ModuleCard label="GEN B" icon={RotateCcw} status={tier >= 2 && faults.utilityBOpen ? boolStatus(state.pathB.generator) : "deenergized"} onClick={() => setSelectedModule("gsb")} selected={selectedModule === "gsb"} />
+                      <HorizontalLine active={state.pathB.source} />
+                      <ModuleCard label="UPS B" icon={Battery} status={state.pathB.status} onClick={() => setSelectedModule("ups")} selected={selectedModule === "ups"} />
+                    </div>
+                    <div className="grid gap-3 grid-cols-[1fr_32px_1fr] items-center">
+                      <div />
+                      <HorizontalLine active={state.stsB} />
+                      <ModuleCard label="STS B Input" icon={GitBranch} status={state.stsB ? "energized" : "failed"} onClick={() => setSelectedModule("sts")} selected={selectedModule === "sts"} />
+                    </div>
                   </div>
                 </div>
 
                 <div className="rounded-3xl border-2 border-slate-300 bg-slate-50 p-4">
-                  <div className="mb-3 text-center text-lg font-black">STS Controls</div>
+                  <div className="mb-3 text-center text-lg font-black">STS Source Selector</div>
                   <div className="grid w-full grid-cols-3 gap-2 max-w-md mx-auto">
                     {(["AUTO", "A", "B"] as StsSource[]).map((mode) => (
                       <Button key={mode} variant={stsMode === mode ? "default" : "outline"} className="rounded-xl px-2 py-2 text-sm" onClick={() => setStsMode(mode)}>
@@ -421,22 +445,7 @@ export default function DataCenterPowerTrainer() {
                       </Button>
                     ))}
                   </div>
-                </div>
-
-                <div>
-                  <div className="mb-4 text-center text-2xl font-black">PATH B</div>
-                  <div className="grid gap-3 md:grid-cols-5 items-center">
-                    <ModuleCard label="Utility B" icon={Zap} status={tier >= 3 ? boolStatus(state.pathB.utility) : "deenergized"} onClick={() => setSelectedModule("utility")} selected={selectedModule === "utility"} />
-                    <HorizontalLine active={state.pathB.utility} />
-                    <ModuleCard label="SES B" icon={GitBranch} status={tier >= 3 ? (state.pathB.source ? "energized" : "failed") : "deenergized"} onClick={() => setSelectedModule("ses")} selected={selectedModule === "ses"} />
-                    <HorizontalLine active={state.pathB.source} />
-                    <ModuleCard label="GEN B" icon={RotateCcw} status={tier >= 2 && faults.utilityBOpen ? boolStatus(state.pathB.generator) : "deenergized"} onClick={() => setSelectedModule("gsb")} selected={selectedModule === "gsb"} />
-                  </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-3 items-center">
-                    <ModuleCard label="UPS B" icon={Battery} status={state.pathB.status} onClick={() => setSelectedModule("ups")} selected={selectedModule === "ups"} />
-                    <HorizontalLine active={state.stsB} />
-                    <ModuleCard label="STS" icon={GitBranch} status={faults.stsFailed ? "failed" : state.selectedSource === "NONE" ? "failed" : "energized"} onClick={() => setSelectedModule("sts")} selected={selectedModule === "sts"} />
-                  </div>
+                  <div className="mt-3 text-center text-sm font-semibold text-slate-600">Selected Source: {state.selectedSource}</div>
                 </div>
               </div>
 
